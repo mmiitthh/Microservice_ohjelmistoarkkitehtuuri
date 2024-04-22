@@ -144,13 +144,37 @@ namespace DatabaseManagementService.Controllers
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "error clearing table");
                 return StatusCode(StatusCodes.Status500InternalServerError, "error clearing table");
             }
-            _logger.LogInformation("table cleared");
             return Ok("table cleared");
         }
-        //return await _context.ElectricityPrices.ToListAsync
+
+        [Route("getprices")]
+        [HttpGet]
+        public async Task<IActionResult> get_prices([FromQuery] DateTime? start, [FromQuery] DateTime? end)
+        {
+            if (start == null || end == null)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest, "start and end parameters must be in DateTime format");
+            }
+            string log = "entries between " + start + " and " + end + "\n";
+            try
+            {
+                var result = _context.ElectricityPrices
+                    .Where(e => (e.StartDate > start && e.StartDate < end))
+                    .OrderBy(e => e.StartDate).ToList();
+                foreach (var a in result)
+                {
+                    log += a.StartDate + ":\t" + a.Price + "\n";
+                }
+                return Ok(result);
+            }
+            catch (Exception e)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "error");
+            }
+        }
+
 
     }
 }
