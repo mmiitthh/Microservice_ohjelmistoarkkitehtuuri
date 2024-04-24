@@ -175,6 +175,121 @@ namespace DatabaseManagementService.Controllers
             }
         }
 
+        [Route("getprices_page")]
+        [HttpGet]
+        public async Task<IActionResult> get_prices_page([FromQuery] DateTime? start, [FromQuery] DateTime? end,
+    [FromQuery] int page, [FromQuery] int pageSize)
+        {
+            if (page < 1) { page = 1; }
+            if (pageSize < 1) { pageSize = 1; }
+            if (pageSize > 20) { pageSize = 20; }
+            if (start == null || end == null)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest, "wrong format");
+            }
+            string log = "entries between " + start + " and " + end + "\n";
+            try
+            {
+                var result = _context.ElectricityPrices
+                    .Where(e => (e.StartDate > start && e.StartDate < end))
+                    .OrderBy(e => e.StartDate)
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize).ToList();
+
+                foreach (var a in result)
+                {
+                    log += a.StartDate + ":\t" + a.Price + "\n";
+                }
+                log += "page: " + page + " pageSize: " + pageSize;
+                _logger.LogInformation(log);
+                return Ok(result);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "error");
+                return StatusCode(StatusCodes.Status500InternalServerError, "error");
+            }
+        }
+        [Route("GetPriceDifference")]
+        [HttpGet]
+        public async Task<IActionResult> get_prices_dif([FromQuery] DateTime start, [FromQuery] DateTime end,
+            [FromQuery] double fixedPrice)
+        {
+            if (start == null || end == null)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest, "wrong format");
+            }
+            string log = "price difference between " + start + " and " + end + "\tfixedPrice:" + fixedPrice + "\n";
+            try
+            {
+                var result = _context.ElectricityPrices
+                    .Where(e => (e.StartDate > start && e.StartDate < end))
+                    .OrderBy(e => e.StartDate).ToList();
+                double totalprice = 0;
+                foreach (var a in result)
+                {
+                    totalprice += a.Price;
+                }
+                totalprice /= result.Count;
+                log += "totalprice: " + totalprice + "\n";
+                if (totalprice > fixedPrice)
+                {
+                    totalprice -= fixedPrice;
+                }
+                else
+                {
+                    fixedPrice -= totalprice;
+                }
+                _logger.LogInformation(log);
+                return Ok(new PriceDifference(start, end, totalprice));
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "error!");
+                return StatusCode(StatusCodes.Status500InternalServerError, "error");
+            }
+        }
+        [Route("GetPriceDifferenceList")]
+        [HttpGet]
+        public async Task<IActionResult> get_prices_dif_list([FromQuery] DateTime? start, [FromQuery] DateTime? end,
+            [FromQuery] double fixedPrice)
+        {
+            if (start == null || end == null)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest, "wrong format");
+            }
+            string log = "price difference between " + start + " and " + end + "\tfixedPrice:" + fixedPrice + "\n";
+            try
+            {
+                var result = _context.ElectricityPrices
+                    .Where(e => (e.StartDate > start && e.StartDate < end))
+                    .OrderBy(e => e.StartDate).ToList();
+                List<PriceDifference> pd_list = new List<PriceDifference>();
+                foreach (var a in result)
+                {
+                    double priceDifference;
+                    if (a.Price > fixedPrice)
+                    {
+                        priceDifference = a.Price - fixedPrice;
+                    }
+                    else
+                    {
+                        priceDifference = fixedPrice - a.Price;
+                    }
+
+                    pd_list.Add(new PriceDifference(a.StartDate, a.EndDate, priceDifference));
+                    log += a.StartDate + ":\t" + pd_list[pd_list.Count - 1].PriceDifferenceValue + "\n";
+                }
+                _logger.LogInformation(log);
+                return Ok(pd_list);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "error!");
+                return StatusCode(StatusCodes.Status500InternalServerError, "error");
+            }
+        }
+
 
     }
 }
